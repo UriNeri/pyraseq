@@ -133,23 +133,34 @@ def count_records(
     return _count_records(str(input_file), num_threads=num_threads)
 
 
-def parse_records(input_file: Union[str, Path]) -> List[Tuple[str, str]]:
+def parse_records(input_file: Union[str, Path]) -> List[Tuple[str, str, Optional[str]]]:
     """
-    Parse FASTA/FASTQ records and return (id, sequence) tuples.
+    Parse FASTA/FASTQ records and return (id, sequence, quality) tuples.
     
     This function reads all records from a FASTA/FASTQ file and returns them as
-    a list of (id, sequence) tuples. It can handle both regular and gzipped input files.
+    a list of (id, sequence, quality) tuples. For FASTA files, quality will be None.
+    For FASTQ files, quality contains the quality scores. It can handle both regular
+    and gzipped input files.
     
     Args:
         input_file: Path to input FASTA/FASTQ file (supports .gz)
     
     Returns:
-        List of (id, sequence) tuples
+        List of (id, sequence, quality) tuples. Quality is None for FASTA files.
     
     Example:
-        >>> for seq_id, sequence in parse_records("input.fasta"):
+        >>> # FASTA file
+        >>> for seq_id, sequence, qual in parse_records("input.fasta"):
         ...     print(f">{seq_id}")
         ...     print(sequence)
+        >>> 
+        >>> # FASTQ file
+        >>> for seq_id, sequence, qual in parse_records("input.fastq"):
+        ...     print(f"@{seq_id}")
+        ...     print(sequence)
+        ...     if qual:
+        ...         print("+")
+        ...         print(qual)
         >>> 
         >>> # Get all records at once
         >>> records = parse_records("input.fastq.gz")

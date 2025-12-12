@@ -65,8 +65,9 @@ count_records(
     num_threads: int | None = None,
 ) -> tuple[int, int]  # (num_reads, num_bases)
 
-# Parse records as (id, sequence) tuples
-parse_records(input_file: str | Path) -> list[tuple[str, str]]
+# Parse records as (id, sequence, quality) tuples
+# Quality is None for FASTA, contains scores for FASTQ
+parse_records(input_file: str | Path) -> list[tuple[str, str, str | None]]
 
 load_headers_from_file(file_path: str | Path) -> list[str]
 # example:

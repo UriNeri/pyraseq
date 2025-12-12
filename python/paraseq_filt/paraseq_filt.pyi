@@ -87,23 +87,29 @@ def count_records(
     """
     ...
 
-def parse_records(input_file: str) -> List[Tuple[str, str]]:
+def parse_records(input_file: str) -> List[Tuple[str, str, str | None]]:
     """
-    Parse FASTA/FASTQ records and return (id, sequence) tuples.
+    Parse FASTA/FASTQ records and return (id, sequence, quality) tuples.
     
     Args:
         input_file: Path to input FASTA/FASTQ file (supports .gz)
     
     Returns:
-        List of (id, sequence) tuples
+        List of (id, sequence, quality) tuples. Quality is None for FASTA files.
     
     Raises:
         RuntimeError: If file operations fail
     
     Example:
         >>> import paraseq_filt
-        >>> for seq_id, sequence in paraseq_filt.parse_records("input.fasta"):
+        >>> # FASTA file
+        >>> for seq_id, sequence, qual in paraseq_filt.parse_records("input.fasta"):
         ...     print(f">{seq_id}")
         ...     print(sequence)
+        >>> 
+        >>> # FASTQ file
+        >>> for seq_id, sequence, qual in paraseq_filt.parse_records("input.fastq"):
+        ...     if qual:
+        ...         print(f"Quality: {qual}")
     """
     ...

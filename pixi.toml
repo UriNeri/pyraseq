@@ -2,7 +2,7 @@
 name = "paraseq_filt"
 version = "0.1.0"
 description = "Fast parallel FASTA/FASTQ filtering using Rust and paraseq"
-channels = ["conda-forge"]
+channels = ["conda-forge", "bioconda"]
 platforms = ["linux-64", "osx-64", "osx-arm64"]
 
 [tasks]
@@ -36,3 +36,5 @@ maturin = ">=1.0,<2.0"
 pip = "*"
 rust = ">=1.70"
 patchelf = ">=0.17.2,<0.19"
+bzip2 = ">=1.0.8,<2"
+htslib = "*"  # Provides bgzip

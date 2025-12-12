@@ -205,26 +205,35 @@ fn count_records(
     Ok((n_seqs, n_bases))
 }
 
-/// Parse FASTA/FASTQ records and yield (id, sequence) tuples
+/// Parse FASTA/FASTQ records and yield (id, sequence, quality) tuples
 ///
 /// Args:
 ///     input_file (str): Path to input FASTA/FASTQ file (supports .gz)
 ///
 /// Returns:
-///     list[tuple[str, str]]: List of (id, sequence) tuples
+///     list[tuple[str, str, str | None]]: List of (id, sequence, quality) tuples.
+///         For FASTA files, quality will be None. For FASTQ files, quality contains the quality scores.
 ///
 /// Example:
 ///     >>> import paraseq_filt
-///     >>> for seq_id, sequence in paraseq_filt.parse_records("input.fasta"):
+///     >>> # FASTA file
+///     >>> for seq_id, sequence, qual in paraseq_filt.parse_records("input.fasta"):
 ///     ...     print(f">{seq_id}")
 ///     ...     print(sequence)
+///     >>> 
+///     >>> # FASTQ file
+///     >>> for seq_id, sequence, qual in paraseq_filt.parse_records("input.fastq"):
+///     ...     print(f"@{seq_id}")
+///     ...     print(sequence)
+///     ...     print(f"+")
+///     ...     print(qual)
 #[pyfunction]
-fn parse_records(input_file: &str) -> PyResult<Vec<(String, String)>> {
+fn parse_records(input_file: &str) -> PyResult<Vec<(String, String, Option<String>)>> {
     use std::sync::Mutex;
     
     #[derive(Clone)]
     struct RecordCollector {
-        records: Arc<Mutex<Vec<(String, String)>>>,
+        records: Arc<Mutex<Vec<(String, String, Option<String>)>>>,
     }
     
     impl<R: Record> ParallelProcessor<R> for RecordCollector {
@@ -235,7 +244,13 @@ fn parse_records(input_file: &str) -> PyResult<Vec<(String, String)>> {
                 .unwrap_or_default()
                 .to_string();
             
-            self.records.lock().unwrap().push((id, seq));
+            let qual = record.qual().map(|q| {
+                std::str::from_utf8(q)
+                    .unwrap_or_default()
+                    .to_string()
+            });
+            
+            self.records.lock().unwrap().push((id, seq, qual));
             Ok(())
         }
     }

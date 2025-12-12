@@ -134,18 +134,41 @@ def main():
         assert num_reads == 5, f"Expected 5 reads, got {num_reads}"
         print("  ✓ PASSED")
         
-        # Test 8: Parse records
-        print("\nTest 8: Parse records")
+        # Test 8: Parse FASTA records (no quality)
+        print("\nTest 8: Parse FASTA records")
         records = paraseq_filt.parse_records(input_file)
         print(f"  Parsed {len(records)} records")
         assert len(records) == 5, f"Expected 5 records, got {len(records)}"
-        seq_id, seq = records[0]
+        seq_id, seq, qual = records[0]
         assert seq_id == "seq1", f"Expected 'seq1', got '{seq_id}'"
         assert seq == "ATCGATCGATCG", f"Expected 'ATCGATCGATCG', got '{seq}'"
+        assert qual is None, f"Expected None quality for FASTA, got {qual}"
         print("  ✓ PASSED")
         
-        # Test 9: Parse gzipped file
-        print("\nTest 9: Parse gzipped file")
+        # Test 9: Parse FASTQ records (with quality)
+        print("\nTest 9: Parse FASTQ records with quality")
+        fastq_file = tmpdir / "test.fastq"
+        with open(fastq_file, 'w') as f:
+            f.write("@read1\n")
+            f.write("ACGTACGT\n")
+            f.write("+\n")
+            f.write("IIIIIIII\n")
+            f.write("@read2\n")
+            f.write("TGCATGCA\n")
+            f.write("+\n")
+            f.write("99999999\n")
+        
+        records = paraseq_filt.parse_records(fastq_file)
+        print(f"  Parsed {len(records)} FASTQ records")
+        assert len(records) == 2, f"Expected 2 records, got {len(records)}"
+        seq_id, seq, qual = records[0]
+        assert seq_id == "read1", f"Expected 'read1', got '{seq_id}'"
+        assert seq == "ACGTACGT", f"Expected 'ACGTACGT', got '{seq}'"
+        assert qual == "IIIIIIII", f"Expected 'IIIIIIII' quality, got '{qual}'"
+        print("  ✓ PASSED")
+        
+        # Test 10: Parse gzipped file
+        print("\nTest 10: Parse gzipped FASTA file")
         gz_file = tmpdir / "test.fasta.gz"
         with gzip.open(gz_file, 'wt') as f:
             f.write(">seq1\n")
@@ -156,6 +179,8 @@ def main():
         records = paraseq_filt.parse_records(gz_file)
         print(f"  Parsed {len(records)} records from gzip")
         assert len(records) == 2, f"Expected 2 records, got {len(records)}"
+        seq_id, seq, qual = records[0]
+        assert qual is None, f"Expected None quality for FASTA, got {qual}"
         print("  ✓ PASSED")
         
         print("\n" + "=" * 60)

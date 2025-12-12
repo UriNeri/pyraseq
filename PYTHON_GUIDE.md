@@ -86,22 +86,30 @@ num_reads, num_bases = paraseq_filt.count_records("input.fastq", num_threads=4)
 
 ### `parse_records()`
 ```python
-def parse_records(input_file: str | Path) -> list[tuple[str, str]]
+def parse_records(input_file: str | Path) -> list[tuple[str, str, str | None]]
 ```
 
 **Parameters:**
 - `input_file`: Input file path (supports .gz)
 
-**Returns:** List of (id, sequence) tuples
+**Returns:** List of (id, sequence, quality) tuples. Quality is None for FASTA files.
 
 **Examples:**
 ```python
 import paraseq_filt
 
-# Iterate over records
-for seq_id, sequence in paraseq_filt.parse_records("input.fasta"):
+# FASTA file (quality will be None)
+for seq_id, sequence, qual in paraseq_filt.parse_records("input.fasta"):
     print(f">{seq_id}")
     print(sequence)
+
+# FASTQ file (quality contains scores)
+for seq_id, sequence, qual in paraseq_filt.parse_records("input.fastq"):
+    print(f"@{seq_id}")
+    print(sequence)
+    if qual:
+        print("+")
+        print(qual)
 
 # Get all records at once
 records = paraseq_filt.parse_records("input.fastq.gz")

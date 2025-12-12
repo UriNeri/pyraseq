@@ -51,7 +51,7 @@ def test_count_records_gzip():
 
 
 def test_parse_records():
-    """Test parsing records"""
+    """Test parsing FASTA records"""
     with tempfile.NamedTemporaryFile(mode='w', suffix='.fasta', delete=False) as f:
         test_file = f.name
         f.write(">seq1\n")
@@ -65,13 +65,15 @@ def test_parse_records():
         
         assert len(records) == 2, f"Expected 2 records, got {len(records)}"
         
-        seq_id, seq = records[0]
+        seq_id, seq, qual = records[0]
         assert seq_id == "seq1", f"Expected 'seq1', got '{seq_id}'"
         assert seq == "ACGT", f"Expected 'ACGT', got '{seq}'"
+        assert qual is None, f"Expected None quality for FASTA, got {qual}"
         
-        seq_id, seq = records[1]
+        seq_id, seq, qual = records[1]
         assert seq_id == "seq2", f"Expected 'seq2', got '{seq_id}'"
         assert seq == "TGCA", f"Expected 'TGCA', got '{seq}'"
+        assert qual is None, f"Expected None quality for FASTA, got {qual}"
         
         print("✓ Parse test passed")
     finally:
@@ -79,7 +81,7 @@ def test_parse_records():
 
 
 def test_parse_fastq():
-    """Test parsing FASTQ format"""
+    """Test parsing FASTQ format with quality scores"""
     with tempfile.NamedTemporaryFile(mode='w', suffix='.fastq', delete=False) as f:
         test_file = f.name
         f.write("@read1\n")
@@ -89,7 +91,7 @@ def test_parse_fastq():
         f.write("@read2\n")
         f.write("TGCATGCA\n")
         f.write("+\n")
-        f.write("IIIIIIII\n")
+        f.write("99999999\n")
     
     try:
         records = paraseq_filt.parse_records(test_file)
@@ -97,9 +99,15 @@ def test_parse_fastq():
         
         assert len(records) == 2, f"Expected 2 records, got {len(records)}"
         
-        seq_id, seq = records[0]
+        seq_id, seq, qual = records[0]
         assert seq_id == "read1", f"Expected 'read1', got '{seq_id}'"
         assert seq == "ACGTACGT", f"Expected 'ACGTACGT', got '{seq}'"
+        assert qual == "IIIIIIII", f"Expected 'IIIIIIII' quality, got '{qual}'"
+        
+        seq_id, seq, qual = records[1]
+        assert seq_id == "read2", f"Expected 'read2', got '{seq_id}'"
+        assert seq == "TGCATGCA", f"Expected 'TGCATGCA', got '{seq}'"
+        assert qual == "99999999", f"Expected '99999999' quality, got '{qual}'"
         
         print("✓ FASTQ parse test passed")
     finally:
