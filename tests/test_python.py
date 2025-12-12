@@ -5,6 +5,7 @@ Test script for paraseq_filt Python bindings
 
 import tempfile
 import os
+import gzip
 from pathlib import Path
 
 def create_test_fasta(path):
@@ -116,6 +117,45 @@ def main():
         )
         print(f"  Processed: {processed}, Written: {written}")
         assert written == 0, f"Expected 0 records, got {written}"
+        print("  ✓ PASSED")
+        
+        # Test 6: Count records
+        print("\nTest 6: Count records")
+        num_reads, num_bases = paraseq_filt.count_records(input_file)
+        print(f"  Reads: {num_reads}, Bases: {num_bases}")
+        assert num_reads == 5, f"Expected 5 reads, got {num_reads}"
+        assert num_bases == 60, f"Expected 60 bases, got {num_bases}"  # 5 sequences * 12 bases each
+        print("  ✓ PASSED")
+        
+        # Test 7: Count with threads
+        print("\nTest 7: Count records with specific thread count")
+        num_reads, num_bases = paraseq_filt.count_records(input_file, num_threads=2)
+        print(f"  Reads: {num_reads}, Bases: {num_bases}")
+        assert num_reads == 5, f"Expected 5 reads, got {num_reads}"
+        print("  ✓ PASSED")
+        
+        # Test 8: Parse records
+        print("\nTest 8: Parse records")
+        records = paraseq_filt.parse_records(input_file)
+        print(f"  Parsed {len(records)} records")
+        assert len(records) == 5, f"Expected 5 records, got {len(records)}"
+        seq_id, seq = records[0]
+        assert seq_id == "seq1", f"Expected 'seq1', got '{seq_id}'"
+        assert seq == "ATCGATCGATCG", f"Expected 'ATCGATCGATCG', got '{seq}'"
+        print("  ✓ PASSED")
+        
+        # Test 9: Parse gzipped file
+        print("\nTest 9: Parse gzipped file")
+        gz_file = tmpdir / "test.fasta.gz"
+        with gzip.open(gz_file, 'wt') as f:
+            f.write(">seq1\n")
+            f.write("ACGT\n")
+            f.write(">seq2\n")
+            f.write("TGCA\n")
+        
+        records = paraseq_filt.parse_records(gz_file)
+        print(f"  Parsed {len(records)} records from gzip")
+        assert len(records) == 2, f"Expected 2 records, got {len(records)}"
         print("  ✓ PASSED")
         
         print("\n" + "=" * 60)

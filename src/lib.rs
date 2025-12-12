@@ -146,10 +146,126 @@ fn load_headers_from_file(file_path: &str) -> PyResult<Vec<String>> {
     Ok(headers)
 }
 
+/// Count reads and bases in a FASTA/FASTQ file
+///
+/// Args:
+///     input_file (str): Path to input FASTA/FASTQ file (supports .gz)
+///     num_threads (int | None): Number of threads to use. Default: number of CPUs
+///
+/// Returns:
+///     tuple[int, int]: (num_reads, num_bases)
+///
+/// Example:
+///     >>> import paraseq_filt
+///     >>> num_reads, num_bases = paraseq_filt.count_records("input.fasta.gz")
+///     >>> print(f"{num_reads}\t{num_bases}")
+#[pyfunction]
+#[pyo3(signature = (input_file, num_threads=None))]
+fn count_records(
+    input_file: &str,
+    num_threads: Option<usize>,
+) -> PyResult<(u64, u64)> {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    
+    #[derive(Clone)]
+    struct Counter {
+        n_seqs: Arc<AtomicU64>,
+        n_bases: Arc<AtomicU64>,
+    }
+    
+    impl<R: Record> ParallelProcessor<R> for Counter {
+        fn process_record(&mut self, record: R) -> Result<(), paraseq::ProcessError> {
+            let seq_bytes = record.seq();
+            let seq_len = seq_bytes.len() as u64;
+            
+            self.n_seqs.fetch_add(1, Ordering::Relaxed);
+            self.n_bases.fetch_add(seq_len, Ordering::Relaxed);
+            
+            Ok(())
+        }
+    }
+    
+    let num_threads = num_threads.unwrap_or_else(num_cpus::get);
+    
+    let mut counter = Counter {
+        n_seqs: Arc::new(AtomicU64::new(0)),
+        n_bases: Arc::new(AtomicU64::new(0)),
+    };
+    
+    let reader = paraseq::fastx::Reader::from_path(input_file)
+        .map_err(|e| PyRuntimeError::new_err(format!("Failed to open input file: {}", e)))?;
+    
+    reader
+        .process_parallel(&mut counter, num_threads)
+        .map_err(|e| PyRuntimeError::new_err(format!("Failed to process file: {:?}", e)))?;
+    
+    let n_seqs = counter.n_seqs.load(Ordering::Relaxed);
+    let n_bases = counter.n_bases.load(Ordering::Relaxed);
+    
+    Ok((n_seqs, n_bases))
+}
+
+/// Parse FASTA/FASTQ records and yield (id, sequence) tuples
+///
+/// Args:
+///     input_file (str): Path to input FASTA/FASTQ file (supports .gz)
+///
+/// Returns:
+///     list[tuple[str, str]]: List of (id, sequence) tuples
+///
+/// Example:
+///     >>> import paraseq_filt
+///     >>> for seq_id, sequence in paraseq_filt.parse_records("input.fasta"):
+///     ...     print(f">{seq_id}")
+///     ...     print(sequence)
+#[pyfunction]
+fn parse_records(input_file: &str) -> PyResult<Vec<(String, String)>> {
+    use std::sync::Mutex;
+    
+    #[derive(Clone)]
+    struct RecordCollector {
+        records: Arc<Mutex<Vec<(String, String)>>>,
+    }
+    
+    impl<R: Record> ParallelProcessor<R> for RecordCollector {
+        fn process_record(&mut self, record: R) -> Result<(), paraseq::ProcessError> {
+            let id = record.id_str().to_string();
+            let seq_bytes = record.seq();
+            let seq = std::str::from_utf8(&seq_bytes)
+                .unwrap_or_default()
+                .to_string();
+            
+            self.records.lock().unwrap().push((id, seq));
+            Ok(())
+        }
+    }
+    
+    let mut collector = RecordCollector {
+        records: Arc::new(Mutex::new(Vec::new())),
+    };
+    
+    let reader = paraseq::fastx::Reader::from_path(input_file)
+        .map_err(|e| PyRuntimeError::new_err(format!("Failed to open input file: {}", e)))?;
+    
+    // Use single thread to preserve order
+    reader
+        .process_parallel(&mut collector, 1)
+        .map_err(|e| PyRuntimeError::new_err(format!("Failed to process file: {:?}", e)))?;
+    
+    let records = Arc::try_unwrap(collector.records)
+        .unwrap()
+        .into_inner()
+        .unwrap();
+    
+    Ok(records)
+}
+
 /// Fast parallel FASTA/FASTQ filtering using Rust and paraseq
 #[pymodule]
 fn paraseq_filt(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(filter_fasta_by_headers, m)?)?;
     m.add_function(wrap_pyfunction!(load_headers_from_file, m)?)?;
+    m.add_function(wrap_pyfunction!(count_records, m)?)?;
+    m.add_function(wrap_pyfunction!(parse_records, m)?)?;
     Ok(())
 }

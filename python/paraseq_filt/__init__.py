@@ -11,9 +11,11 @@ from pathlib import Path
 # Import the Rust extension module
 from .paraseq_filt import filter_fasta_by_headers as _filter_fasta_by_headers
 from .paraseq_filt import load_headers_from_file as _load_headers_from_file
+from .paraseq_filt import count_records as _count_records
+from .paraseq_filt import parse_records as _parse_records
 
 __version__ = "0.1.0"
-__all__ = ["filter_fasta_by_headers", "load_headers_from_file"]
+__all__ = ["filter_fasta_by_headers", "load_headers_from_file", "count_records", "parse_records"]
 
 
 def filter_fasta_by_headers(
@@ -102,3 +104,55 @@ def load_headers_from_file(file_path: Union[str, Path]) -> List[str]:
         >>> print(f"Loaded {len(headers)} headers")
     """
     return _load_headers_from_file(str(file_path))
+
+
+def count_records(
+    input_file: Union[str, Path],
+    num_threads: Optional[int] = None,
+) -> Tuple[int, int]:
+    """
+    Count reads and bases in a FASTA/FASTQ file.
+    
+    This function provides a high-performance parallel implementation for counting
+    sequences and bases. It can handle both regular and gzipped input files automatically.
+    
+    Args:
+        input_file: Path to input FASTA/FASTQ file (supports .gz)
+        num_threads: Number of threads to use (default: number of CPUs)
+    
+    Returns:
+        Tuple of (num_reads, num_bases)
+    
+    Example:
+        >>> num_reads, num_bases = count_records("input.fasta.gz")
+        >>> print(f"{num_reads}\\t{num_bases}")
+        >>> 
+        >>> # Use specific thread count
+        >>> num_reads, num_bases = count_records("input.fastq", num_threads=4)
+    """
+    return _count_records(str(input_file), num_threads=num_threads)
+
+
+def parse_records(input_file: Union[str, Path]) -> List[Tuple[str, str]]:
+    """
+    Parse FASTA/FASTQ records and return (id, sequence) tuples.
+    
+    This function reads all records from a FASTA/FASTQ file and returns them as
+    a list of (id, sequence) tuples. It can handle both regular and gzipped input files.
+    
+    Args:
+        input_file: Path to input FASTA/FASTQ file (supports .gz)
+    
+    Returns:
+        List of (id, sequence) tuples
+    
+    Example:
+        >>> for seq_id, sequence in parse_records("input.fasta"):
+        ...     print(f">{seq_id}")
+        ...     print(sequence)
+        >>> 
+        >>> # Get all records at once
+        >>> records = parse_records("input.fastq.gz")
+        >>> print(f"Loaded {len(records)} sequences")
+    """
+    return _parse_records(str(input_file))

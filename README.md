@@ -50,6 +50,7 @@ see [`PYTHON_GUIDE.md`](PYTHON_GUIDE.md) for details.
 ```python
 import paraseq_filt
 
+# Filter sequences
 filter_fasta_by_headers(
     input_file: str | Path,
     output_file: str | Path,
@@ -57,6 +58,15 @@ filter_fasta_by_headers(
     invert: bool = False,
     num_threads: int | None = None,
 ) -> tuple[int, int]  # (processed, written)
+
+# Count reads and bases
+count_records(
+    input_file: str | Path,
+    num_threads: int | None = None,
+) -> tuple[int, int]  # (num_reads, num_bases)
+
+# Parse records as (id, sequence) tuples
+parse_records(input_file: str | Path) -> list[tuple[str, str]]
 
 load_headers_from_file(file_path: str | Path) -> list[str]
 # example:

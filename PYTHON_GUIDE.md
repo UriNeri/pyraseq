@@ -60,6 +60,54 @@ def load_headers_from_file(file_path: str | Path) -> list[str]
 
 Loads sequence IDs from file (one per line).
 
+### `count_records()`
+```python
+def count_records(
+    input_file: str | Path,
+    num_threads: int | None = None,
+) -> tuple[int, int]  # (num_reads, num_bases)
+```
+
+**Parameters:**
+- `input_file`: Input file path (supports .gz)
+- `num_threads`: Thread count (default: CPU count)
+
+**Examples:**
+```python
+import paraseq_filt
+
+# Count sequences and bases
+num_reads, num_bases = paraseq_filt.count_records("input.fasta.gz")
+print(f"{num_reads}\t{num_bases}")
+
+# Use specific thread count
+num_reads, num_bases = paraseq_filt.count_records("input.fastq", num_threads=4)
+```
+
+### `parse_records()`
+```python
+def parse_records(input_file: str | Path) -> list[tuple[str, str]]
+```
+
+**Parameters:**
+- `input_file`: Input file path (supports .gz)
+
+**Returns:** List of (id, sequence) tuples
+
+**Examples:**
+```python
+import paraseq_filt
+
+# Iterate over records
+for seq_id, sequence in paraseq_filt.parse_records("input.fasta"):
+    print(f">{seq_id}")
+    print(sequence)
+
+# Get all records at once
+records = paraseq_filt.parse_records("input.fastq.gz")
+print(f"Loaded {len(records)} sequences")
+```
+
 ## Testing
 
 ```bash

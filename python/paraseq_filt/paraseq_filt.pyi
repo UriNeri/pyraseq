@@ -62,3 +62,48 @@ def load_headers_from_file(file_path: str) -> List[str]:
         >>> print(f"Loaded {len(headers)} headers")
     """
     ...
+
+def count_records(
+    input_file: str,
+    num_threads: int | None = None,
+) -> Tuple[int, int]:
+    """
+    Count reads and bases in a FASTA/FASTQ file.
+    
+    Args:
+        input_file: Path to input FASTA/FASTQ file (supports .gz)
+        num_threads: Number of threads to use. Default: number of CPUs
+    
+    Returns:
+        Tuple of (num_reads, num_bases)
+    
+    Raises:
+        RuntimeError: If file operations fail
+    
+    Example:
+        >>> import paraseq_filt
+        >>> num_reads, num_bases = paraseq_filt.count_records("input.fasta.gz")
+        >>> print(f"{num_reads}\\t{num_bases}")
+    """
+    ...
+
+def parse_records(input_file: str) -> List[Tuple[str, str]]:
+    """
+    Parse FASTA/FASTQ records and return (id, sequence) tuples.
+    
+    Args:
+        input_file: Path to input FASTA/FASTQ file (supports .gz)
+    
+    Returns:
+        List of (id, sequence) tuples
+    
+    Raises:
+        RuntimeError: If file operations fail
+    
+    Example:
+        >>> import paraseq_filt
+        >>> for seq_id, sequence in paraseq_filt.parse_records("input.fasta"):
+        ...     print(f">{seq_id}")
+        ...     print(sequence)
+    """
+    ...
