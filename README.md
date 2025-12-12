@@ -93,3 +93,8 @@ pixi run test-python    # Python tests
 ```
 
 Or manually: `bash tests/test.sh` and `python tests/test_python.py`
+
+
+## License
+MIT (same as the license of the paraseq crate)
+
