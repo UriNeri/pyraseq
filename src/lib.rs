@@ -73,6 +73,7 @@ impl<R: Record> ParallelProcessor<R> for FastaFilterPy {
 #[pyfunction]
 #[pyo3(signature = (input_file, output_file, headers, invert=false, num_threads=None))]
 fn filter_fasta_by_headers(
+    py: Python<'_>,
     input_file: &str,
     output_file: &str,
     headers: Vec<String>,
@@ -100,13 +101,17 @@ fn filter_fasta_by_headers(
         written: Arc::new(Mutex::new(0)),
     };
     
-    // Process FASTA file
-    let reader = paraseq::fastx::Reader::from_path(input_file)
-        .map_err(|e| PyRuntimeError::new_err(format!("Failed to open input file: {}", e)))?;
+    // Copy input_file to owned String for use in closure
+    let input_file = input_file.to_string();
     
-    reader
-        .process_parallel(&mut processor, num_threads)
-        .map_err(|e| PyRuntimeError::new_err(format!("Failed to process file: {:?}", e)))?;
+    // Release the GIL while processing to allow other Python threads to run
+    // and to enable true parallelism in Rust
+    let result = py.allow_threads(|| {
+        let reader = paraseq::fastx::Reader::from_path(&input_file)?;
+        reader.process_parallel(&mut processor, num_threads)
+    });
+    
+    result.map_err(|e| PyRuntimeError::new_err(format!("Failed to process file: {:?}", e)))?;
     
     let total_processed = *processor.processed.lock().unwrap();
     let total_written = *processor.written.lock().unwrap();
@@ -162,6 +167,7 @@ fn load_headers_from_file(file_path: &str) -> PyResult<Vec<String>> {
 #[pyfunction]
 #[pyo3(signature = (input_file, num_threads=None))]
 fn count_records(
+    py: Python<'_>,
     input_file: &str,
     num_threads: Option<usize>,
 ) -> PyResult<(u64, u64)> {
@@ -192,12 +198,17 @@ fn count_records(
         n_bases: Arc::new(AtomicU64::new(0)),
     };
     
-    let reader = paraseq::fastx::Reader::from_path(input_file)
-        .map_err(|e| PyRuntimeError::new_err(format!("Failed to open input file: {}", e)))?;
+    // Copy input_file to owned String for use in closure
+    let input_file = input_file.to_string();
     
-    reader
-        .process_parallel(&mut counter, num_threads)
-        .map_err(|e| PyRuntimeError::new_err(format!("Failed to process file: {:?}", e)))?;
+    // Release the GIL while processing to allow other Python threads to run
+    // and to enable true parallelism in Rust
+    let result = py.allow_threads(|| {
+        let reader = paraseq::fastx::Reader::from_path(&input_file)?;
+        reader.process_parallel(&mut counter, num_threads)
+    });
+    
+    result.map_err(|e| PyRuntimeError::new_err(format!("Failed to process file: {:?}", e)))?;
     
     let n_seqs = counter.n_seqs.load(Ordering::Relaxed);
     let n_bases = counter.n_bases.load(Ordering::Relaxed);
@@ -228,9 +239,7 @@ fn count_records(
 ///     ...     print(f"+")
 ///     ...     print(qual)
 #[pyfunction]
-fn parse_records(input_file: &str) -> PyResult<Vec<(String, String, Option<String>)>> {
-    use std::sync::Mutex;
-    
+fn parse_records(py: Python<'_>, input_file: &str) -> PyResult<Vec<(String, String, Option<String>)>> {
     #[derive(Clone)]
     struct RecordCollector {
         records: Arc<Mutex<Vec<(String, String, Option<String>)>>>,
@@ -259,13 +268,17 @@ fn parse_records(input_file: &str) -> PyResult<Vec<(String, String, Option<Strin
         records: Arc::new(Mutex::new(Vec::new())),
     };
     
-    let reader = paraseq::fastx::Reader::from_path(input_file)
-        .map_err(|e| PyRuntimeError::new_err(format!("Failed to open input file: {}", e)))?;
+    // Copy input_file to owned String for use in closure
+    let input_file = input_file.to_string();
     
-    // Use single thread to preserve order
-    reader
-        .process_parallel(&mut collector, 1)
-        .map_err(|e| PyRuntimeError::new_err(format!("Failed to process file: {:?}", e)))?;
+    // Release the GIL while processing to allow other Python threads to run
+    let result = py.allow_threads(|| {
+        let reader = paraseq::fastx::Reader::from_path(&input_file)?;
+        // Use single thread to preserve order
+        reader.process_parallel(&mut collector, 1)
+    });
+    
+    result.map_err(|e| PyRuntimeError::new_err(format!("Failed to process file: {:?}", e)))?;
     
     let records = Arc::try_unwrap(collector.records)
         .unwrap()
