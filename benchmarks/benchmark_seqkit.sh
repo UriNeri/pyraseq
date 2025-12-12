@@ -42,12 +42,29 @@ create_fasta() {
     local num_seqs=$2
     local seq_length=${3:-100}
     
-    echo "Creating FASTA with ${num_seqs} sequences..."
-    for i in $(seq 1 $num_seqs); do
-        echo ">seq${i}"
-        head -c $seq_length /dev/urandom | base64 | tr -d '\n=' | head -c $seq_length
-        echo ""
-    done > "$file"
+    echo "  Creating test file with ${num_seqs} sequences..."
+    
+    # Simple Python-based FASTA generator
+    python3 << EOF
+import random
+import sys
+
+num_seqs = ${num_seqs}
+seq_length = ${seq_length}
+
+random.seed(42)
+bases = ['A', 'C', 'G', 'T']
+
+with open('${file}', 'w') as f:
+    for i in range(1, num_seqs + 1):
+        seq = ''.join(random.choices(bases, k=seq_length))
+        f.write(f'>seq{i}\n{seq}\n')
+EOF
+    
+    if [ $? -ne 0 ]; then
+        echo "Error: Failed to create test file"
+        exit 1
+    fi
 }
 
 # Function to run benchmark
@@ -77,12 +94,15 @@ run_benchmark() {
     # Benchmark paraseq_filt
     echo -e "${YELLOW}  paraseq_filt:${NC}"
     local start=$(date +%s.%N)
-    ./target/release/paraseq_filt \
+    if ! ./target/release/paraseq_filt \
         -i "$input_file" \
         -o "$output_paraseq" \
         -H "$headers_file" \
         -t $threads \
-        2>/dev/null
+        2>&1 | grep -v "^Using"; then
+        echo "    Error: paraseq_filt failed"
+        return 1
+    fi
     local end=$(date +%s.%N)
     local time_paraseq=$(echo "$end - $start" | bc)
     local count_paraseq=$(grep -c "^>" "$output_paraseq" || true)
@@ -92,11 +112,14 @@ run_benchmark() {
     # Benchmark seqkit grep
     echo -e "${YELLOW}  seqkit grep:${NC}"
     local start=$(date +%s.%N)
-    seqkit grep \
+    if ! seqkit grep \
         -f "$headers_file" \
         -j $threads \
         "$input_file" \
-        > "$output_seqkit" 2>/dev/null
+        > "$output_seqkit" 2>&1; then
+        echo "    Error: seqkit failed"
+        return 1
+    fi
     local end=$(date +%s.%N)
     local time_seqkit=$(echo "$end - $start" | bc)
     local count_seqkit=$(grep -c "^>" "$output_seqkit" || true)
@@ -142,6 +165,16 @@ echo "=================================================="
 run_benchmark "Large-1thread" 1000000 100000 1
 run_benchmark "Large-4threads" 1000000 100000 4
 run_benchmark "Large-8threads" 1000000 100000 8
+run_benchmark "Large-16threads" 1000000 100000 16
+
+
+echo "=================================================="
+echo "Larger file (10M sequences, keep 100K)"
+echo "=================================================="
+run_benchmark "Larger-1thread" 10000000 100000 1
+run_benchmark "Larger-4threads" 10000000 100000 4
+run_benchmark "Larger-8threads" 10000000 100000 8
+run_benchmark "Largee-16threads" 10000000 100000 16
 
 echo "=================================================="
 echo "Test: Invert mode (exclude sequences)"
@@ -183,20 +216,3 @@ echo "  Output: ${count_seqkit} sequences"
 
 speedup=$(echo "scale=2; $time_seqkit / $time_paraseq" | bc)
 echo -e "${GREEN}Speedup: ${speedup}x${NC}"
-echo ""
-
-echo "=================================================="
-echo "Summary"
-echo "=================================================="
-echo ""
-echo "paraseq_filt advantages:"
-echo "  ✓ Rust-based parallel processing"
-echo "  ✓ Python bindings available"
-echo "  ✓ O(1) HashSet lookups"
-echo ""
-echo "seqkit advantages:"
-echo "  ✓ Mature, well-tested tool"
-echo "  ✓ Many additional features"
-echo "  ✓ Regular expression support"
-echo ""
-echo "Choose based on your needs!"

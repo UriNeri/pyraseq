@@ -1,15 +1,10 @@
 # paraseq_filt
 
-Parallel FASTA/FASTQ filtering tool with Rust CLI and Python bindings.
+Parallel FASTA/FASTQ filtering tool with a CLI and Python bindings.  
+Uses `paraseq` crate
 
-## Features
-
-- Parallel processing using the `paraseq` crate
-- Gzip input support (via niffler)
-- HashSet-based lookups (O(1))
-- Invert mode to exclude sequences
-- Python bindings with full type hints
-- CLI and library interfaces
+## NOTE
+This is a crude, partially vibe coded and hastily made attempt. It's mostly to add a comparison point in biofaster benchmark for muti-threaded FASTA/FASTQ parsing and filtering. The `filt` is cause we wondered if we can use it to filter sequences by headers.
 
 ## Installation
 
@@ -38,10 +33,33 @@ paraseq_filt -i input.fasta -o output.fasta -H "seq1,seq2,seq3"
 paraseq_filt -i input.fasta -o output.fasta -H headers.txt --invert -t 8
 ```
 
-### Python
+
+## Options
+
+```
+-i, --input <FILE>      Input file (supports .gz)
+-o, --output <FILE>     Output file (required for filter mode)
+-H, --headers <LIST>    Comma-separated IDs or file path (required for filter mode)
+-v, --invert            Exclude matching sequences
+-t, --threads <N>       Thread count (default: CPU count)
+-c, --count             Count mode: just count reads and bases
+```
+
+## Python API Reference
+see [`PYTHON_GUIDE.md`](PYTHON_GUIDE.md) for details.
 ```python
 import paraseq_filt
 
+filter_fasta_by_headers(
+    input_file: str | Path,
+    output_file: str | Path,
+    headers: list[str] | str | Path,
+    invert: bool = False,
+    num_threads: int | None = None,
+) -> tuple[int, int]  # (processed, written)
+
+load_headers_from_file(file_path: str | Path) -> list[str]
+# example:
 processed, written = paraseq_filt.filter_fasta_by_headers(
     "input.fasta",
     "output.fasta",
@@ -56,43 +74,14 @@ processed, written = paraseq_filt.filter_fasta_by_headers(
     "headers.txt",
     invert=True
 )
-```
-
-## Options
 
 ```
--i, --input <FILE>      Input file (supports .gz)
--o, --output <FILE>     Output file (required for filter mode)
--H, --headers <LIST>    Comma-separated IDs or file path (required for filter mode)
--v, --invert            Exclude matching sequences
--t, --threads <N>       Thread count (default: CPU count)
--c, --count             Count mode: just count reads and bases
-```
-
-## Python API Reference
-
-```python
-filter_fasta_by_headers(
-    input_file: str | Path,
-    output_file: str | Path,
-    headers: list[str] | str | Path,
-    invert: bool = False,
-    num_threads: int | None = None,
-) -> tuple[int, int]  # (processed, written)
-
-load_headers_from_file(file_path: str | Path) -> list[str]
-```
-
-Full type stubs included for IDE support and type checking.
 
 ## Benchmarking
-
-For integration with [biofaster](https://github.com/UriNeri/biofaster), see [BIOFASTER_INTEGRATION.md](BIOFASTER_INTEGRATION.md).
-
-Count mode benchmark:
-```bash
-paraseq_filt --count -i large_file.fasta.gz -t 32
-```
+This is meant to be measured in [biofaster](https://github.com/UriNeri/biofaster) (only streaming and base/read cunting). 
+For benchmarking the `filt` options see `benchmarks/benchmark_seqkit.sh`.  
+For a more detailed benchmarking see [Noam Teyssier blog post](https://noamteyssier.github.io/2025-02-03/) and benchmark repo in:  
+https://github.com/noamteyssier/paraseq_benchmark  
 
 ## Testing
 
